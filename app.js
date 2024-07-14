@@ -1,22 +1,22 @@
-let kissCount = localStorage.getItem('kissCount') ? parseInt(localStorage.getItem('kissCount')) : 0;
+let tokenCount = localStorage.getItem('tokenCount') ? parseInt(localStorage.getItem('tokenCount')) : 0;
 
-function updateKissCount() {
-    document.querySelector('.kiss-count').textContent = `Kisses: ${kissCount}`;
-    localStorage.setItem('kissCount', kissCount);
+function updateTokenCount() {
+    document.querySelector('.token-count').textContent = `NanaTokens: ${tokenCount}`;
+    localStorage.setItem('tokenCount', tokenCount);
 }
 
-function addKiss() {
-    kissCount++;
-    updateKissCount();
+function addToken() {
+    tokenCount++;
+    updateTokenCount();
 }
 
-function redeemKiss() {
-    if (kissCount > 0) {
-        kissCount--;
-        updateKissCount();
+function redeemToken() {
+    if (tokenCount > 0) {
+        tokenCount--;
+        updateTokenCount();
     } else {
-        alert("No kisses to redeem!");
+        alert("No NanaTokens to redeem!");
     }
 }
 
-window.onload = updateKissCount;
+window.onload = updateTokenCount;
