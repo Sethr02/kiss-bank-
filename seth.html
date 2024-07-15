@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marsee International Bank - Seth's Version</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f9f9f9;
+            color: #333;
+            text-align: center;
+            padding: 20px;
+            padding-bottom: 60px; /* space for the fixed footer */
+        }
+        .card {
+            background-color: #d2afff; /* Lilac color */
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .card .card-body {
+            padding: 0;
+            text-align: center;
+        }
+        .card .card-body h5 {
+            margin: 0;
+        }
+        .card .card-body p {
+            margin-top: 30px; /* Margin top for Wallet Balance */
+        }
+        .card .card-body .token-count {
+            margin-top: -20px;
+        }
+        .card-footer {
+            background-color: #a2c8a2; /* Green color */
+            border-top: 0;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+        }
+        .btn {
+            background-color: #a2c8a2; /* Green color */
+            border: none;
+            color: white;
+            flex-grow: 1;
+            margin: 0;
+            border-right: 1px solid #fff;
+        }
+        .btn:last-child {
+            border-right: none;
+        }
+        .btn:hover {
+            background-color: #8faf8f;
+        }
+        .request-card .card-title, .confirmation-card .card-title {
+            position: absolute;
+            top: 10px;
+            left: 20px;
+        }
+        .request-card .card-text, .confirmation-card .card-text {
+            position: absolute;
+            top: -20px;
+            right: 20px;
+        }
+        .footer {
+            text-align: center;
+            padding: 10px 0;
+            font-family: 'Nobile', sans-serif;
+            position: fixed;
+            width: 100%;
+            bottom: 0;
+        }
+        .footer p {
+            margin: 0;
+        }
+        .footer-gif {
+            width: 50px;
+            height: auto;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="alert alert-success alert-dismissible fade show" role="alert" id="requestAlert" style="display: none;">
+            Request sent successfully.
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="alert alert-info alert-dismissible fade show" role="alert" id="tokenAlert" style="display: none;">
+            You have received a NanaToken from Marsee.
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="card text-left">
+            <div class="card-body">
+                <h5>Hello, Seth!</h5>
+                <p>Wallet Balance</p>
+                <h2 class="token-count">NanaTokens: 0</h2>
+            </div>
+            <div class="card-footer">
+                <button id="redeemTokenButton" class="btn">Request</button>
+                <button id="historyButton" class="btn">History</button>
+            </div>
+        </div>
+        <div class="confirmations mt-4"></div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="historyModal" tabindex="-1" aria-labelledby="historyModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="historyModalLabel">Request History</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <ul id="historyList" class="list-group"></ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <img src="https://media.tenor.com/WcD6euyUl8oAAAAi/omen-valorant-valorant.gif" alt="Footer GIF" class="footer-gif">
+        <p>&copy; Seth 2024</p>
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+        import { getDatabase, ref, set, get, onValue, push, update } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCRj6gmNQ6JoT5PShcged0CwIeyUMF13t4",
+            authDomain: "marsee-international-bank.firebaseapp.com",
+            databaseURL: "https://marsee-international-bank-default-rtdb.firebaseio.com",
+            projectId: "marsee-international-bank",
+            storageBucket: "marsee-international-bank.appspot.com",
+            messagingSenderId: "427066423440",
+            appId: "1:427066423440:web:5f894e8fa1396a94e20015",
+            measurementId: "G-NVQNBFN1G3"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        let tokenCount = 0;
+        let hasPendingRequest = false;
+
+        function updateTokenCount() {
+            document.querySelector('.token-count').textContent = `NanaTokens: ${tokenCount}`;
+            const redeemTokenButton = document.getElementById('redeemTokenButton');
+            if (tokenCount === 0 || hasPendingRequest) {
+                redeemTokenButton.disabled = true;
+            } else {
+                redeemTokenButton.disabled = false;
+            }
+        }
+
+        function redeemToken() {
+            if (tokenCount > 0 && !hasPendingRequest) {
+                const requestRef = ref(database, 'requests');
+                const newRequestRef = push(requestRef);
+                set(newRequestRef, {
+                    status: 'pending',
+                    timestamp: Date.now()
+                });
+                hasPendingRequest = true;
+                updateTokenCount();
+                showRequestAlert();
+            }
+        }
+
+        function showRequestAlert() {
+            const requestAlert = document.getElementById('requestAlert');
+            requestAlert.style.display = 'block';
+            setTimeout(() => {
+                requestAlert.style.display = 'none';
+            }, 3000);
+        }
+
+        function showTokenAlert() {
+            const tokenAlert = document.getElementById('tokenAlert');
+            tokenAlert.style.display = 'block';
+            setTimeout(() => {
+                tokenAlert.style.display = 'none';
+            }, 3000);
+        }
+
+        window.confirmFulfillment = function(requestId) {
+            update(ref(database, `requests/${requestId}`), { status: 'fulfilled' });
+            tokenCount--;
+            hasPendingRequest = false;
+            updateTokenCount();
+            set(ref(database, 'tokens'), tokenCount);
+            set(ref(database, 'confirmAlert'), true); // Trigger alert for Marsee
+        };
+
+        function loadConfirmations() {
+            const confirmationsDiv = document.querySelector('.confirmations');
+            const requestsRef = ref(database, 'requests');
+            onValue(requestsRef, (snapshot) => {
+                const requests = snapshot.val() || {};
+                confirmationsDiv.innerHTML = '';
+                Object.keys(requests).forEach(key => {
+                    const request = requests[key];
+                    if (request.status === 'accepted') {
+                        const confirmationElem = document.createElement('div');
+                        confirmationElem.className = 'card mb-2 confirmation-card';
+                        confirmationElem.innerHTML = `
+                            <div class="card-body">
+                                <h5 class="card-title">Request Accepted</h5>
+                                <p class="card-text">${new Date(request.timestamp).toLocaleString()}</p>
+                                <button class="btn btn-success mt-4" onclick="confirmFulfillment('${key}')">Confirm Fulfillment</button>
+                            </div>
+                        `;
+                        confirmationsDiv.appendChild(confirmationElem);
+                    }
+                    if (request.status === 'pending') {
+                        hasPendingRequest = true;
+                        updateTokenCount();
+                    }
+                });
+            });
+        }
+
+        function loadHistory() {
+            const historyList = document.getElementById('historyList');
+            const requestsRef = ref(database, 'requests');
+            onValue(requestsRef, (snapshot) => {
+                const requests = snapshot.val() || {};
+                historyList.innerHTML = '';
+                Object.keys(requests).forEach(key => {
+                    const request = requests[key];
+                    const listItem = document.createElement('li');
+                    listItem.className = 'list-group-item';
+                    listItem.textContent = `Request from Seth - ${new Date(request.timestamp).toLocaleString()} - Status: ${request.status}`;
+                    historyList.appendChild(listItem);
+                });
+            });
+        }
+
+        window.onload = () => {
+            const redeemTokenButton = document.getElementById('redeemTokenButton');
+            redeemTokenButton.onclick = redeemToken;
+
+            const historyButton = document.getElementById('historyButton');
+            historyButton.onclick = () => {
+                loadHistory();
+                $('#historyModal').modal('show');
+            };
+
+            const tokenRef = ref(database, 'tokens');
+            onValue(tokenRef, (snapshot) => {
+                tokenCount = snapshot.val() || 0;
+                updateTokenCount();
+            });
+
+            const tokenAlertRef = ref(database, 'tokenAlert');
+            onValue(tokenAlertRef, (snapshot) => {
+                if (snapshot.val()) {
+                    showTokenAlert();
+                    set(ref(database, 'tokenAlert'), false); // Reset alert status
+                }
+            });
+
+            loadConfirmations();
+        };
+    </script>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
